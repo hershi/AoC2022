@@ -23,12 +23,24 @@ impl Round {
     }
 }
 
+fn convert(s: &str) -> u8 {
+    match s {
+        "A" => 0,
+        "B" => 1,
+        "C" => 2,
+        "X" => 0,
+        "Y" => 1,
+        "Z" => 2,
+        _ => panic!("Invalid input {}", s),
+    }
+}
+
 fn convert_me(s: &str, them: u8) -> u8 {
     match s {
         "X" => (them + 2) % 3,
         "Y" => them,
         "Z" => (them + 1) %3,
-        _ => 255,
+        _ => panic!("Invalid input {}", s),
     }
 }
 
@@ -37,11 +49,25 @@ fn convert_them(s: &str) -> u8 {
         "A" => 0,
         "B" => 1,
         "C" => 2,
-        _ => 255,
+        _ => panic!("Invalid input {}", s),
     }
 }
 
-fn read_input() -> Vec<Round> {
+fn read_input_1() -> Vec<Round> {
+    let input_file = File::open("src/input.txt").unwrap();
+    let reader = BufReader::new(input_file);
+    reader.lines()
+        .map(|x|x.unwrap())
+        .map(|l| l.split(' ').take(2).map(|x|x.to_string()).collect::<Vec<_>>())
+        .map(|v| {
+            let them = convert(&v[0]);
+            let me = convert(&v[1]);
+            Round{me,them}
+        })
+        .collect()
+}
+
+fn read_input_2() -> Vec<Round> {
     let input_file = File::open("src/input.txt").unwrap();
     let reader = BufReader::new(input_file);
     reader.lines()
@@ -56,7 +82,14 @@ fn read_input() -> Vec<Round> {
 }
 
 fn main() {
-    let input = read_input();
+    let input = read_input_1();
+
+    let score = input.iter()
+        .map(|x|x.score())
+        .sum::<usize>();
+    println!("{:?}", score);
+
+    let input = read_input_2();
 
     let score = input.iter()
         .map(|x|x.score())
