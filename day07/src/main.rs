@@ -7,6 +7,7 @@ use std::rc::{Rc, Weak};
 use std::cell::{Cell,RefCell};
 use lazy_static::lazy_static;
 use log::*;
+use std::iter::once;
 
 #[derive(Debug, Clone)]
 struct FileDetails {
@@ -33,15 +34,16 @@ struct Node {
     files: Vec<DirEntry>,
     dirs: Vec<Rc<RefCell<Node>>>,
     parent: Weak<RefCell<Node>>,
+    total_size: usize,
 }
 
 impl Node {
     fn new(name: &str) -> Rc<RefCell<Node>> {
-        Rc::new(RefCell::new(Node { name: name.to_string(), files: vec![], dirs: vec![], parent: Weak::new()}))
+        Rc::new(RefCell::new(Node { name: name.to_string(), files: vec![], dirs: vec![], parent: Weak::new(), total_size: 0}))
     }
 
     fn new_with_parent(name: &str, parent: Weak<RefCell<Node>>) -> Rc<RefCell<Node>> {
-        Rc::new(RefCell::new(Node { name: name.to_string(), files: vec![], dirs: vec![], parent}))
+        Rc::new(RefCell::new(Node { name: name.to_string(), files: vec![], dirs: vec![], parent, total_size: 0}))
     }
 }
 
@@ -134,13 +136,29 @@ fn build_tree(input: &Input) -> Rc<RefCell<Node>> {
     tree
 }
 
+fn calc_sizes(tree: &Rc<RefCell<Node>>) -> usize {
+    let mut total_size = tree.borrow().files.iter()
+        .map(|f| match f {
+            DirEntry::File(fd) => fd.size,
+            _ => 0,
+        })
+        .sum::<usize>();
+
+    total_size += tree.borrow().dirs.iter()
+        .map(|d| calc_sizes(d))
+        .sum::<usize>();
+
+    tree.borrow_mut().total_size = total_size;
+    total_size
+}
+
 fn print_tree(tree: &Rc<RefCell<Node>>, indent: u8) {
     let mut tabs = "".to_string();
     for _ in 0..indent {
         tabs += " ";
     }
 
-    println!("{}{}", tabs, tree.borrow().name);
+    println!("{}{}:{}", tabs, tree.borrow().name, tree.borrow().total_size);
 
     if let Some(p) = tree.borrow().parent.upgrade() {
         println!("{} Parent is {}", tabs, p.borrow().name);
@@ -159,13 +177,55 @@ fn print_tree(tree: &Rc<RefCell<Node>>, indent: u8) {
     }
 }
 
+fn part_1_impl(node: &Node) -> usize {
+    let mut me = 0;
+    if node.total_size <= 100000 {
+        me = node.total_size;
+        println!(">> {} has total size {} <= 100000", node.name, node.total_size);
+    }
+
+    node.dirs.iter()
+        .map(|d| part_1_impl(&d.borrow()))
+        .sum::<usize>() + me
+}
+
 fn part_1(input: &Input) {
-    //println!("Input {:?}", input);
     let tree = build_tree(input);
-    print_tree(&tree, 0);
+    calc_sizes(&tree);
+    println!("Part 1: {}", part_1_impl(&tree.borrow()));
+}
+
+fn part_2_impl(node: &Node, needed_space: usize, min_size: usize) -> usize {
+    if node.total_size < needed_space {
+        // No point continuing
+        return min_size;
+    }
+
+    let mut min_size = min_size;
+    if node.total_size < min_size {
+        println!("Switching min {}-->{} ({})", min_size, node.total_size, node.name);
+        min_size = node.total_size;
+    }
+
+    node.dirs.iter()
+        .map(|d| part_2_impl(&d.borrow(), needed_space, min_size))
+        .chain(once(min_size))
+        .min()
+        .unwrap()
 }
 
 fn part_2(input: &Input) {
+    const DISK_SIZE :usize = 70000000;
+    const NEEDED_SIZE  :usize = 30000000;
+
+    let tree = build_tree(input);
+    calc_sizes(&tree);
+
+    let free_space = DISK_SIZE - tree.borrow().total_size;
+    let needed_space = NEEDED_SIZE - free_space;
+
+    println!("Disk size: {}, Free space: {}, Needed space: {}", DISK_SIZE, free_space, needed_space);
+    println!("Part 2: {}", part_2_impl(&tree.borrow(), needed_space, usize::MAX));
 }
 
 
