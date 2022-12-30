@@ -2,8 +2,6 @@ use std::io::prelude::*;
 use std::io::BufReader;
 use std::fs::File;
 use std::collections::HashSet;
-use regex::Regex;
-use lazy_static::lazy_static;
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 struct Point {
@@ -55,10 +53,6 @@ fn rock_from_str(s: &str) -> HashSet<Point> {
 }
 
 fn read_input() -> Input {
-    lazy_static! {
-        static ref PARSER_RE: Regex = Regex::new(r"\b(\d+),(\d+)\s*(->)?\s*").unwrap();
-    }
-
     let input_file = File::open("src/input.txt").unwrap();
     BufReader::new(input_file)
         .lines()
